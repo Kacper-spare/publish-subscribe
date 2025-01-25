@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 
+
 int main()
 {
     /* Plik main.c nie musi posiadac zadnych dodatkowych informacji (prawdopodobnie biblioteka tutaj 
@@ -17,4 +18,6 @@ int main()
      */
     int sizeOfQueue = 10;
     TQueue* queue = createQueue(sizeOfQueue);
+
+    
 }
