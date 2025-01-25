@@ -1,0 +1,10 @@
+pdf-engine: xelatex
+highlight-style: tango
+standalone: true
+number-sections: true
+variables:
+  papersize: a4
+  geometry: margin=2.5cm
+  fontsize: 11pt
+  urlcolor: blue!70!black
+  sansfontoptions: Scale=MatchLowercase

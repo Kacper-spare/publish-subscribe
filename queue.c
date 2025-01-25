@@ -200,7 +200,7 @@ void* getMsg(TQueue *queue, pthread_t thread)
         queue->activeReaders--;
         if (queue->activeReaders == 0)
         {
-            pthread_cond_signal(&queue->lockEditing);
+            pthread_cond_broadcast(&queue->lockEditing);
         }
         pthread_mutex_unlock(&queue->mutexEditing);
         return NULL;
@@ -211,7 +211,7 @@ void* getMsg(TQueue *queue, pthread_t thread)
     queue->activeReaders--;
     if (queue->activeReaders == 0)
     {
-        pthread_cond_signal(&queue->lockEditing);
+        pthread_cond_broadcast(&queue->lockEditing);
     }
 
     //thread suspension
@@ -269,7 +269,7 @@ void removeMsg(TQueue *queue, void *msg)
         queue->activeReaders--;
         if (queue->activeReaders == 0)
         {
-            pthread_cond_signal(&queue->lockEditing);
+            pthread_cond_broadcast(&queue->lockEditing);
         }
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
@@ -290,7 +290,7 @@ void removeMsg(TQueue *queue, void *msg)
         queue->activeReaders--;
         if (queue->activeReaders == 0)
         {
-            pthread_cond_signal(&queue->lockEditing);
+            pthread_cond_broadcast(&queue->lockEditing);
         }
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
@@ -301,7 +301,7 @@ void removeMsg(TQueue *queue, void *msg)
     queue->activeReaders--;
     if (queue->activeReaders == 0)
     {
-        pthread_cond_signal(&queue->lockEditing);
+        pthread_cond_broadcast(&queue->lockEditing);
     }
     //wait for all readers to finish
     while (queue->activeReaders != 0)
@@ -352,7 +352,7 @@ void addMsg(TQueue *queue, void *msg)
         queue->activeReaders--;
         if (queue->activeReaders == 0)
         {
-            pthread_cond_signal(&queue->lockEditing);
+            pthread_cond_broadcast(&queue->lockEditing);
         }
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
@@ -363,7 +363,7 @@ void addMsg(TQueue *queue, void *msg)
     queue->activeReaders--;
     if (queue->activeReaders == 0)
     {
-        pthread_cond_signal(&queue->lockEditing);
+        pthread_cond_broadcast(&queue->lockEditing);
     }
     //suspending thread when queue is full
     while(queue->tail+1 >= queue->capacity)
@@ -418,7 +418,7 @@ int getAvailable(TQueue *queue, pthread_t thread)
     queue->activeReaders--;
     if (queue->activeReaders == 0)
     {
-        pthread_cond_signal(&queue->lockEditing);
+        pthread_cond_broadcast(&queue->lockEditing);
     }
     pthread_mutex_unlock(&queue->mutexEditing);
     return toReturn;
@@ -513,6 +513,7 @@ void unsubscribe(TQueue *queue, pthread_t thread)
         {
             queue->messageArray[i] = NULL;
         }
+        pthread_cond_broadcast(&queue->lockAddMsg);
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
     }
@@ -545,6 +546,7 @@ void unsubscribe(TQueue *queue, pthread_t thread)
             subscribed = subscribed->next;
         }
         queue->tail-=delta;
+        pthread_cond_broadcast(&queue->lockAddMsg);
     }
     pthread_mutex_unlock(&queue->mutexEditing);
     return;
