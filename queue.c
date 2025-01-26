@@ -223,10 +223,19 @@ void* getMsg(TQueue *queue, pthread_t thread)
         pthread_mutex_unlock(&queue->mutexGetMsg);
         pthread_mutex_lock(&queue->mutexEditing);
     }
-
+    queue->activeReaders++;
+    pthread_mutex_unlock(&queue->mutexEditing);
     //rest of algorythm
     void* toReturn = (void*) queue->messageArray[subscriber->head];
+    pthread_mutex_lock(&queue->mutexEditing);
+    queue->activeReaders--;
+    if (queue->activeReaders == 0)
+    {
+        pthread_cond_broadcast(&queue->lockEditing);
+    }
     subscriber->head++;
+    queue->activeReaders++;
+    pthread_mutex_unlock(&queue->mutexEditing);
     TNode* allSubscribers = queue->subscribers;
 
     //checking if every subscriber has already read this message (only deletes first messages due to how this structure works)
@@ -236,12 +245,24 @@ void* getMsg(TQueue *queue, pthread_t thread)
     }
     if (allSubscribers == NULL)
     {
+        pthread_mutex_lock(&queue->mutexEditing);
+        queue->activeReaders--;
+        if (queue->activeReaders == 0)
+        {
+            pthread_cond_broadcast(&queue->lockEditing);
+        }
         //removing item
         pthread_mutex_unlock(&queue->mutexEditing);
         removeMsg(queue, toReturn);
     }
     else
     {
+        pthread_mutex_lock(&queue->mutexEditing);
+        queue->activeReaders--;
+        if (queue->activeReaders == 0)
+        {
+            pthread_cond_broadcast(&queue->lockEditing);
+        }
         pthread_mutex_unlock(&queue->mutexEditing);
     }
     return toReturn;
@@ -507,7 +528,7 @@ void unsubscribe(TQueue *queue, pthread_t thread)
     //subscriber was found, now deletes him (unsubscribes him)
     *subscriber = removeNode(*subscriber);
     //deletes all messages because there are no subscribers
-    if (*subscriber == NULL)
+    if (queue->subscribers == NULL)
     {
         for (int i = 0; i <= queue->tail; i++)
         {

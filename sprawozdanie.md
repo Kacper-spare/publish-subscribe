@@ -49,7 +49,7 @@ Projekt został wykonany z użyciem dwóch struktur danych.
         int activeReaders; //liczba wątków aktualnie czytających informacje kolejki
         ```
 
-        zmienne te służą wyłącznie do synchronizacji wątków w programie z umożliwieniem istnienia wielu różnych struktór `TQueue`
+        zmienne te służą wyłącznie do synchronizacji wątków w programie z umożliwieniem istnienia wielu różnych struktur `TQueue`
 
     \pagebreak
     
@@ -62,26 +62,26 @@ Projekt został wykonany z użyciem dwóch struktur danych.
         TNode* subscribers; //lista jednokierunkowa z id wątków zasubskrybowanych
         ```
 
-        zmienne te obsługują informacje kolejki odpowiednio opisane w komentarzu obok zmiennej. Zmienna `subscribers` jest stworzona przy użyciu struktury której implementacja wygląda następująco.
+        zmienne te obsługują informacje kolejki odpowiednio opisane w komentarzu obok zmiennej. Zmienna `subscribers` jest stworzona przy użyciu struktury, której implementacja wygląda następująco.
 
 2. Struktura `TNode`
 
     ```c
     typedef struct Node
     {
-        int head; //informacja o indeksie koljenej wiadomości do przeczytania
+        int head; //informacja o indeksie kolejnej  wiadomości do przeczytania
         pthread_t* data; //wskaźnik do id wątku
         struct Node* next; //wskaźnik do kolejnego elementu listy
     } TNode;
     ```
 
-    struktura ta umożliwia dynamiczną alokacje i dealokacje dodatkowych subskrybentów bez używania funkcji `realloc()` która może zwrócić `NULL` i usunąć całą liste. Sposób implementacji subskrybentów jest preferencją.
+    struktura ta umożliwia dynamiczną alokacje i dealokacje dodatkowych subskrybentów bez używania funkcji `realloc()` która może zwrócić `NULL` i usunąć całą listę. Sposób implementacji subskrybentów jest preferencją.
         
 # Funkcje
 
 Poniższe funkcje zawarte tutaj są funkcjami związanymi z kolejką jednokierunkową pozostałe funkcje są zaimplementowane zgodnie z specyfikacją projektu.
 
-1. `TNode* newNode(pthread_t* thread, TQueue* queue)` -- tworzy nowy wskaźnik do   kolejnego elementu listy.
+1. `TNode* newNode(pthread_t* thread, TQueue* queue)` -- tworzy nowy wskaźnik do kolejnego elementu listy.
 
 2. `TNode* removeNode(TNode* head)` -- usuwa element podany, funkcja ta jest zawsze używana dla pewnego podzbioru listy i zawsze usuwa pierwszy element podzbioru.
 
@@ -89,7 +89,7 @@ Poniższe funkcje zawarte tutaj są funkcjami związanymi z kolejką jednokierun
 
 ## Implementacja
 
-### `destroyQueue(TQueue* queue)` -- niszczy kolejke, musi zwolnić mutex związany z  blokowaniem dostępu do kolejki aby go usunąć, może więc powodować błędy typu `read access violation`.
+### `destroyQueue(TQueue* queue)` -- niszczy kolejkę, musi zwolnić mutex związany z blokowaniem dostępu do kolejki, aby go usunąć, może więc powodować błędy typu `read access violation`.
 
 ### `setSize(TQueue* queue, int size)`, `unsubscribe(TQueue *queue, pthread_t thread)`, `removeMsg(TQueue *queue, void *msg)` -- funkcje te korzystają z przesunięcia tablicy jednowymiarowej o n pozycji w lewo przykład:
 
@@ -107,7 +107,7 @@ Na końcu przemieszczenia o `n = 1` otrzymujemy
 
 ![Po przsunięciu](pngs/ex3.png){width=50%}\
 
-Teraz algorytm poprawi wskaźniki przesuwając je odpowienio 
+Teraz algorytm poprawi wskaźniki przesuwając je odpowiednio 
 
 ![Po przsunięciu](pngs/ex4.png){width=50%}\
 
@@ -119,7 +119,7 @@ I ostatecznie usunie zduplikowaną wiadomość (nie jest to jednak konieczne z p
 
 ## Zabezpieczenia
 
-W programie występuje dwa zabezpieczneń związanych z obsługą informacji w strukturze `TQueue`.
+W programie występuje dwa zabezpieczeń związanych z obsługą informacji w strukturze `TQueue`.
 
 ### Sekcja krytyczna dla wątku czytającego
 
@@ -139,7 +139,7 @@ if (queue->activeReaders == 0)
 pthread_mutex_unlock(&queue->mutexEditing);
 ```
 
-Zabezpiecznie to informuje wątki edytujące informacje o instnieniu wątku który aktualnie czyta infomacje z `TQueue` czyli informacja o tym że nie powinien zmieniać tych informacji dopóki inne wątki czytają je. Natomiast druga część informuje wątki uśpione przez zmienną warunkową o potencjalnej możliwości edycji `TQueue`. Informujemy wszystkie wątki, ponieważ kiedy jeden z nich skończy zadanie to drugi może rozpocząć swoje bez czekania aż znowu wystąpi sygnał na danej zmiennej warunkowej.
+Zabezpieczenie to informuje wątki edytujące informacje o istnieniu wątku, który aktualnie czyta informacje z `TQueue`, czyli informacja o tym, że nie powinien zmieniać tych informacji, dopóki inne wątki czytają je. Natomiast druga część informuje wątki uśpione przez zmienną warunkową o potencjalnej możliwości edycji `TQueue`. Informujemy wszystkie wątki, ponieważ kiedy jeden z nich skończy zadanie to drugi może rozpocząć swoje bez czekania aż znowu wystąpi sygnał na danej zmiennej warunkowej.
 
 ### Sekcja krytyczna dla wątku edytującego
 
@@ -161,7 +161,7 @@ Sekcja krytyczna występuje na całości funkcji (ponieważ edytujemy) co zatrzy
 
 #### Zakleszczenie \
 
-Nie powinno wystąpić. Zasobem żądanym przez wątki jest dostęp do struktury `TQueue`, wątki rywalizują o dostęp do tej struktury, ale jest ona chroniona jednym mutexem. Nie jest to jednak wyustarczającym warunkiem do powstania zakleszczenie. Zakleszczenie mogłoby wystąpić jeśli przy usypianiu odpowieni mutex nie zostałby zwolniony.
+Nie powinno wystąpić. Zasobem żądanym przez wątki jest dostęp do struktury `TQueue`, wątki rywalizują o dostęp do tej struktury, ale jest ona chroniona jednym mutexem. Nie jest to jednak wystarczającym warunkiem do powstania zakleszczenie. Zakleszczenie mogłoby wystąpić, jeśli przy usypianiu odpowiedni mutex nie zostałby zwolniony.
 
 #### Aktywne oczekiwanie \
 
@@ -171,11 +171,11 @@ Program nie zawiera pętli z uśpieniem typu `sleep(n)`, ani pętli które wył�
 
 #### Głodzenie \
 
-Jak powiedziane wcześniej program jest podobny do problemu piszących i czytających z priorytetem dla czytających co pozwala na głodzenie wątków piszących. Dodanie kolejnego mutexa który by kontrolował zezwolnie na czytanie spowodowało by odwrócenie piorytetu (głodznie wątków czytających), jednakże specyfikacja projektu mówi o blokowaniu się wątków, które próbują odebrać wiadomości kiedy nie ma nowej wiadomości do odebrania. Na tej podstawie można stwierdzić że głodzenie może wystąpić jedynie kiedy wątki będą wywoływać funkcje `getAvailable(TQueue *queue, pthread_t thread)`. Odwrócenie priorytetu doprowadzi do jednakowego problemu poprzez wywoływanie funkcji edytujących.
+Jak powiedziane wcześniej program jest podobny do problemu piszących i czytających z priorytetem dla czytających co pozwala na głodzenie wątków piszących. Dodanie kolejnego mutexa który by kontrolował zezwolenie na czytanie spowodowało by odwrócenie priorytetu (głodzenie wątków czytających), jednakże specyfikacja projektu mówi o blokowaniu się wątków, które próbują odebrać wiadomości, kiedy nie ma nowej wiadomości do odebrania. Na tej podstawie można stwierdzić że głodzenie może wystąpić jedynie kiedy wątki będą wywoływać funkcje `getAvailable(TQueue *queue, pthread_t thread)`. Odwrócenie priorytetu doprowadzi do jednakowego problemu poprzez wywoływanie funkcji edytujących.
 
 # Przykład użycia
 
-Program który będzie analizowany
+Program, który będzie analizowany
 
 ```c
 void* function(void* args)
@@ -214,3 +214,39 @@ int main()
     destroyQueue(queue);
 }
 ```
+
+Program wywołuje kolejno `createQueue(sizeOfQueue)` następnie tworzy 7 wątków każdy z nich subskrybuje do kolejki `queue` następnie 10 razy odbiera wiadomość poprzez `getMsg((TQueue*) args, pthread_self())` i wyświetla ją w terminalu a na koniec wywoła `unsubscribe(TQueue* queue)` z kolejki `queue`. W trakcie kiedy funkcja `function(void* args)` się wykonuje wielowątkowo wątek główny dodaje 20 wiadomości. Na koniec programu kolejka jest usuwana.
+
+| Faza | T0 | T1 | T2 | T3 | T4 | T5 | T6 | T7 |
+|---|---|---|---|---|---|---|---|---|
+| 1: |  | sub(Q) | sub(Q) | sub(Q) | sub(Q) | sub(Q) | sub(Q) |  |
+| 2: | add(0) |  |  |  |  |  |  |  |
+| 3: | add(1) |  |  |  |  |  |  |  |
+| 4: | add(2) |  |  |  |  |  |  |  |
+| 5: |  |  |  |  |  |  |  | sub(Q) |
+| 6: | add(3) |  |  |  |  |  |  |  |
+| 7: | add(4) |  |  |  |  |  |  |  |
+| 8: | add(5) |  |  |  |  |  |  |  |
+| 9: | add(6) |  |  |  |  |  |  |  |
+| 10: | add(7) |  |  |  |  |  |  |  |
+| 11: |  | 0&larr;get(Q) | 0&larr;get(Q) | 0&larr;get(Q) | 0&larr;get(Q) | 0&larr;get(Q) | 0&larr;get(Q) | 3&larr;get(Q) |
+| 12: |  |  |  |  |  |  | rm(Q,0) |  |
+| 13: |  | 1&larr;get(Q) | 1&lar;rget(Q) | 1&larr;get(Q) | 1&larr;get(Q) | 1&larr;get(Q) | 1&larr;get(Q) | 4&larr;get(Q) |
+| 14: |  |  |  |  |  |  | rm(Q,1) |  |
+| 15: |  | 2&larr;get(Q) | 2&larr;get(Q) | 2&larr;get(Q) | 2&larr;get(Q) | 2&larr;get(Q) | 2&larr;get(Q) | 5&larr;get(Q) |
+| 16: |  |  |  |  |  |  | rm(Q,2) |  |
+| 17: | add(8) |  |  |  |  |  |  |  |
+| 18: | add(9) |  |  |  |  |  |  |  |
+| 19: | add(10) |  |  |  |  |  |  |  |
+| 20: | add(11) |  |  |  |  |  |  |  |
+| 21: | add(12) |  |  |  |  |  |  |  |
+| 22: | add(13) |  |  |  |  |  |  |  |
+| 23: | &darr; | 3&larr;get(Q) | 3&larr;get(Q) | 3&larr;get(Q) | 3&larr;get(Q) | 3&larr;get(Q) | 3&larr;get(Q) | 6&larr;get(Q) |
+| 24: | &darr; |  |  |  |  |  | rm(Q,3) |  |
+| 25: | 13 |  |  |  |  |  |  |  |
+| 26: |  | 4&larr;get(Q) | 4&larr;get(Q) | 4&larr;get(Q) | 4&larr;get(Q) | 4&larr;get(Q) | 4&larr;get(Q) | 8&larr;get(Q) |
+| 27: |  |  |  |  |  |  | rm(Q,4) |  |
+| 28: |  | 5&larr;get(Q) | 5&larr;get(Q) | 5&larr;get(Q) | 5&larr;get(Q) | 5&larr;get(Q) | 5&larr;get(Q) | 9&larr;get(Q) |
+| 29: |  |  |  |  |  |  | rm(Q,5) |  |
+
+Kontynuując ten przykład dostaniemy końcowo, że wątki wypisały liczby do 0 do 9, natomiast wątek `T7` wypisał liczby od 3 do 12. Program ma możliwość zakończenia się oczekiwaniem na otrzymanie sygnału od zmiennej warunkowej.
