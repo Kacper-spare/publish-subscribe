@@ -35,7 +35,7 @@ TQueue* createQueue(int size)
     //returs NULL when wronf size is given
     if (size <= 0)
     {
-        printf("Incorrect size of queue\n");
+        // printf("Incorrect size of queue\n");
         return NULL;
     }
 
@@ -123,7 +123,7 @@ void setSize(TQueue* queue, int size)
     }
     if (size <= 0)
     {
-        printf("Incorect value of size\n");
+        // printf("Incorect value of size\n");
         return;
     }
 
@@ -285,7 +285,7 @@ void removeMsg(TQueue *queue, void *msg)
     //check if there are any messages
     if (queue->tail <= -1)
     {
-        printf("No msgs in queue to remove\n");
+        // printf("No msgs in queue to remove\n");
         pthread_mutex_lock(&queue->mutexEditing);
         queue->activeReaders--;
         if (queue->activeReaders == 0)
@@ -306,7 +306,7 @@ void removeMsg(TQueue *queue, void *msg)
     //check if message was found
     if (i >= queue->tail+1)
     {
-        printf("No msg found in queue\n");
+        // printf("No msg found in queue\n");
         pthread_mutex_lock(&queue->mutexEditing);
         queue->activeReaders--;
         if (queue->activeReaders == 0)
@@ -417,7 +417,7 @@ int getAvailable(TQueue *queue, pthread_t thread)
     //checking if queue is NULL
     if (queue == NULL)
     {
-        printf("Queue isn't initiated\n");
+        // printf("Queue isn't initiated\n");
         return -1;
     }
 
@@ -484,7 +484,7 @@ void subscribe(TQueue *queue, pthread_t thread)
     }
     //found this thread to be already subscribed
     pthread_mutex_unlock(&queue->mutexEditing);
-    printf("Thread already subscribed to this queue\n");
+    // printf("Thread already subscribed to this queue\n");
     return;
 }
 
@@ -509,7 +509,7 @@ void unsubscribe(TQueue *queue, pthread_t thread)
     //check if there are any subscribers
     if (*subscriber == NULL)
     {
-        printf("Nobody is subscribed\n");
+        // printf("Nobody is subscribed\n");
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
     }
@@ -522,7 +522,7 @@ void unsubscribe(TQueue *queue, pthread_t thread)
     if (*subscriber == NULL)
     {
         pthread_mutex_unlock(&queue->mutexEditing);
-        printf("Not yet subscribed\n");
+        // printf("Not yet subscribed\n");
         return;
     }
     //subscriber was found, now deletes him (unsubscribes him)
