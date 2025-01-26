@@ -175,3 +175,42 @@ Jak powiedziane wcześniej program jest podobny do problemu piszących i czytaj�
 
 # Przykład użycia
 
+Program który będzie analizowany
+
+```c
+void* function(void* args)
+{
+    subscribe((TQueue*) args, pthread_self());
+    for (int i = 0; i < 10; i++)
+    {
+        printf("%d\n", *(int*)getMsg((TQueue*) args, pthread_self()));
+    }
+    unsubscribe((TQueue*) args, pthread_self());
+}
+
+int main()
+{
+    int sizeOfQueue = 10;
+    int array[20] = {0};
+    TQueue* queue = createQueue(sizeOfQueue);
+
+    pthread_t threads[7];
+    
+    for (int i = 0; i < 7; i++)
+    {
+        pthread_create(&threads[i], NULL, function, (void*) queue);
+    }
+    for (int i = 0; i < 20; i++)
+    {
+        array[i] = i;
+        addMsg(queue, (void*)(&array[i]));
+    }
+    
+    
+    for (int i = 0; i < 7; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+    destroyQueue(queue);
+}
+```

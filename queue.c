@@ -509,10 +509,11 @@ void unsubscribe(TQueue *queue, pthread_t thread)
     //deletes all messages because there are no subscribers
     if (*subscriber == NULL)
     {
-        for (int i = 0; i < queue->tail; i++)
+        for (int i = 0; i <= queue->tail; i++)
         {
             queue->messageArray[i] = NULL;
         }
+        queue->tail = -1;
         pthread_cond_broadcast(&queue->lockAddMsg);
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
