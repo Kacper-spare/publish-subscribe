@@ -2,7 +2,15 @@
 
 #include <unistd.h>
 
-
+void* function(void* args)
+{
+    subscribe((TQueue*) args, pthread_self());
+    for (int i = 0; i < 10; i++)
+    {
+        printf("%d %lu\n", *(int*)getMsg((TQueue*) args, pthread_self()), pthread_self());
+    }
+    unsubscribe((TQueue*) args, pthread_self());
+}
 
 int main()
 {
@@ -17,7 +25,25 @@ int main()
      * watkow aktualnie czytajacych z struktury TQueue
      */
     int sizeOfQueue = 10;
+    int array[20] = {0};
     TQueue* queue = createQueue(sizeOfQueue);
 
+    pthread_t threads[7];
     
+    for (int i = 0; i < 7; i++)
+    {
+        pthread_create(&threads[i], NULL, function, (void*) queue);
+    }
+    for (int i = 0; i < 20; i++)
+    {
+        array[i] = i;
+        addMsg(queue, (void*)(&array[i]));
+    }
+    
+    
+    for (int i = 0; i < 7; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+    destroyQueue(queue);
 }
