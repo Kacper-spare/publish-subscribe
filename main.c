@@ -21,7 +21,7 @@ int main()
     TQueue* queue = createQueue(sizeOfQueue);
 
     int var = 1;
-    void* var2;
+    // void* var2;
     int *m1 = &var;
     pthread_t t1 = pthread_self();
 
