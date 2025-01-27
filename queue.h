@@ -25,15 +25,6 @@ typedef struct Node
 
 struct TQueue
 {
-    //size of messageArray
-    int capacity;
-    //last index with valuable information past this all values in messageArray should be NULL
-    int tail;
-    //array of any information
-    void** messageArray;
-    //singly linked list of all currenly subscribed threads
-    TNode* subscribers;
-
     //used only for condition value when there is no message to receive
     pthread_cond_t lockGetMsg;
     //used only for condition value when queue is full
@@ -46,6 +37,16 @@ struct TQueue
     pthread_mutex_t mutexAddMsg;
     //used for critical sections while editing values in queue
     pthread_mutex_t mutexEditing;
+    
+    //size of messageArray
+    int capacity;
+    //last index with valuable information past this all values in messageArray should be NULL
+    int tail;
+    //array of any information
+    void** messageArray;
+    //singly linked list of all currenly subscribed threads
+    TNode* subscribers;
+
 
     //number of threads reading anything in queue
     int activeReaders;

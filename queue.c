@@ -93,7 +93,7 @@ void destroyQueue(TQueue* queue)
     queue->messageArray = NULL;
     if (queue->subscribers != NULL)
     {
-        while (removeNode((queue->subscribers)) == NULL);
+        while (removeNode((queue->subscribers)) != NULL);
     }
 
     pthread_cond_destroy(&queue->lockAddMsg);
@@ -373,9 +373,9 @@ void addMsg(TQueue *queue, void *msg)
         queue->activeReaders--;
         if (queue->activeReaders == 0)
         {
-            pthread_cond_broadcast(&queue->lockEditing);
+            pthread_cond_broadcast(&(queue->lockEditing));
         }
-        pthread_mutex_unlock(&queue->mutexEditing);
+        pthread_mutex_unlock(&(queue->mutexEditing));
         return;
     }
 
@@ -384,16 +384,16 @@ void addMsg(TQueue *queue, void *msg)
     queue->activeReaders--;
     if (queue->activeReaders == 0)
     {
-        pthread_cond_broadcast(&queue->lockEditing);
+        pthread_cond_broadcast(&(queue->lockEditing));
     }
     //suspending thread when queue is full
     while(queue->tail+1 >= queue->capacity)
     {
-        pthread_mutex_unlock(&queue->mutexEditing);
-        pthread_mutex_lock(&queue->mutexAddMsg);
-        pthread_cond_wait(&queue->lockAddMsg, &queue->mutexAddMsg);
-        pthread_mutex_unlock(&queue->mutexAddMsg);
-        pthread_mutex_lock(&queue->mutexEditing);
+        pthread_mutex_unlock(&(queue->mutexEditing));
+        pthread_mutex_lock(&(queue->mutexAddMsg));
+        pthread_cond_wait(&(queue->lockAddMsg), &(queue->mutexAddMsg));
+        pthread_mutex_unlock(&(queue->mutexAddMsg));
+        pthread_mutex_lock(&(queue->mutexEditing));
     }
     while (queue->activeReaders != 0)
     {
@@ -418,6 +418,7 @@ int getAvailable(TQueue *queue, pthread_t thread)
     if (queue == NULL)
     {
         // printf("Queue isn't initiated\n");
+
         return -1;
     }
 
@@ -431,6 +432,11 @@ int getAvailable(TQueue *queue, pthread_t thread)
     //if not subscribed than returns 0
     if (subscriber == NULL)
     {
+        queue->activeReaders--;
+        if (queue->activeReaders == 0)
+        {
+            pthread_cond_broadcast(&queue->lockEditing);
+        }
         return 0;
     }
     //number of messages that can be received without getting suspended
