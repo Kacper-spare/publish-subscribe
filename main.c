@@ -10,7 +10,8 @@ void* function(void* args)
     int *m1 = &var;
     subscribe(queue, t1);
     addMsg(queue, m1);
-    printf("%d", getAvailable(queue, t1));
+    int tak = getAvailable(queue, t1);
+    printf("%d", tak);
     return NULL;
 }
 
@@ -20,9 +21,13 @@ int main()
     TQueue* queue = createQueue(sizeOfQueue);
 
     int var = 1;
+    void* var2;
     int *m1 = &var;
     pthread_t t1 = pthread_self();
 
+    // pthread_t t2;
+    // pthread_create(&t2, NULL, function, queue);
+    // pthread_join(t2, NULL);
     subscribe(queue, t1);
     addMsg(queue, m1);    
     printf("%d \n", getAvailable(queue, t1));

@@ -18,7 +18,7 @@ typedef struct Node
     //next index of message to read by thread
     int head;
     //pointer to id of a thread (taken from pthread_self() function)
-    pthread_t* data;
+    pthread_t data;
     //pointer to next item of a list
     struct Node* next;
 } TNode;
@@ -53,7 +53,7 @@ struct TQueue
 typedef struct TQueue TQueue;
 
 //used to create new nodes for list of subscribers
-TNode* newNode(pthread_t* thread, TQueue* queue);
+TNode* newNode(pthread_t thread, TQueue* queue);
 
 //deletes first node returns NULL on failure to delete
 TNode* removeNode(TNode* head);

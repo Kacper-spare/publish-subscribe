@@ -2,7 +2,7 @@
 
 //linked list functions
 
-TNode* newNode(pthread_t* thread, TQueue* queue)
+TNode* newNode(pthread_t thread, TQueue* queue)
 {
     TNode* node = (TNode*) malloc(sizeof(TNode));
     if (node == NULL)
@@ -190,7 +190,7 @@ void* getMsg(TQueue *queue, pthread_t thread)
 
     //algorythmic part
     TNode* subscriber = queue->subscribers;
-    while (subscriber != NULL && *(subscriber->data) != thread)
+    while (subscriber != NULL && subscriber->data != thread)
     {
         subscriber = subscriber->next;
     }
@@ -425,7 +425,7 @@ int getAvailable(TQueue *queue, pthread_t thread)
     //algorythmic part
     TNode* subscriber = queue->subscribers;
     //searches for a subscriber thread
-    while (subscriber != NULL && *(subscriber->data) != thread)
+    while (subscriber != NULL && subscriber->data != thread)
     {
         subscriber = subscriber->next;
     }
@@ -472,19 +472,19 @@ void subscribe(TQueue *queue, pthread_t thread)
     //check if this is 1st subscriber
     if (*subscriber == NULL)
     {
-        *subscriber = newNode(&thread, queue);
+        *subscriber = newNode(thread, queue);
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
     }
     //iterate untill found thread or last item
-    while ((*subscriber)->next != NULL && *((*subscriber)->data) != thread)
+    while ((*subscriber)->next != NULL && (*subscriber)->data != thread)
     {
         subscriber = &((*subscriber)->next);
     }
     //adds a new node at the end
     if ((*subscriber)->next == NULL)
     {
-        (*subscriber)->next = newNode(&thread, queue);
+        (*subscriber)->next = newNode(thread, queue);
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
     }
@@ -520,7 +520,7 @@ void unsubscribe(TQueue *queue, pthread_t thread)
         return;
     }
     //searches for the subscriber to unsubscribe
-    while (*subscriber != NULL && *((*subscriber)->data) != thread)
+    while (*subscriber != NULL && (*subscriber)->data != thread)
     {
         subscriber = &(*subscriber)->next;
     }
