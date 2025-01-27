@@ -37,19 +37,17 @@ struct TQueue
     pthread_mutex_t mutexAddMsg;
     //used for critical sections while editing values in queue
     pthread_mutex_t mutexEditing;
-    
+
+    //number of threads reading anything in queue
+    int activeReaders;
     //size of messageArray
     int capacity;
     //last index with valuable information past this all values in messageArray should be NULL
     int tail;
-    //array of any information
-    void** messageArray;
     //singly linked list of all currenly subscribed threads
     TNode* subscribers;
-
-
-    //number of threads reading anything in queue
-    int activeReaders;
+    //array of any information
+    void** messageArray;
 };
 
 typedef struct TQueue TQueue;
