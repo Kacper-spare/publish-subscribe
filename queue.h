@@ -31,15 +31,9 @@ struct TQueue
     pthread_cond_t lockAddMsg;
     //used only for condition value when waiting for all readers to finish reading (writer may starve)
     pthread_cond_t lockEditing;
-    //used only for condition value when there is no message to receive
-    pthread_mutex_t mutexGetMsg;
-    //used only for condition value when queue is full
-    pthread_mutex_t mutexAddMsg;
     //used for critical sections while editing values in queue
     pthread_mutex_t mutexEditing;
 
-    //number of threads reading anything in queue
-    int activeReaders;
     //size of messageArray
     int capacity;
     //last index with valuable information past this all values in messageArray should be NULL

@@ -51,7 +51,6 @@ TQueue* createQueue(int size)
     pthread_mutex_lock(&queue->mutexEditing);
 
     //default values of variables for queue
-    queue->activeReaders = 0;    
     queue->tail = -1;
     queue->capacity = size;
     queue->messageArray = malloc(queue->capacity*sizeof(void*));
@@ -62,8 +61,6 @@ TQueue* createQueue(int size)
     pthread_cond_init(&queue->lockAddMsg, NULL);
     pthread_cond_init(&queue->lockEditing, NULL);
 
-    pthread_mutex_init(&queue->mutexGetMsg, NULL);
-    pthread_mutex_init(&queue->mutexAddMsg, NULL);
     pthread_mutex_init(&queue->mutexEditing, NULL);
 
     pthread_mutex_unlock(&queue->mutexEditing);
@@ -80,10 +77,6 @@ void destroyQueue(TQueue* queue)
 
     //critical section for value editing purposses
     pthread_mutex_lock(&queue->mutexEditing);
-    while (queue->activeReaders != 0)
-    {
-        pthread_cond_wait(&queue->lockEditing, &queue->mutexEditing);
-    }
 
     //deleting allocated memory 
     if (queue->messageArray != NULL)
@@ -98,9 +91,6 @@ void destroyQueue(TQueue* queue)
 
     pthread_cond_destroy(&queue->lockAddMsg);
     pthread_cond_destroy(&queue->lockGetMsg);
-
-    pthread_mutex_destroy(&queue->mutexAddMsg);
-    pthread_mutex_destroy(&queue->mutexGetMsg);
 
     pthread_cond_destroy(&queue->lockEditing);
 
@@ -129,15 +119,11 @@ void setSize(TQueue* queue, int size)
 
     //critical section due to editing values
     pthread_mutex_lock(&queue->mutexEditing);
-    while (queue->activeReaders != 0)
-    {
-        pthread_cond_wait(&queue->lockEditing, &queue->mutexEditing);
-    }
 
     //algorythmic part
     int delta = queue->tail - size + 1;
     TNode* subscriber = queue->subscribers;
-    if (delta > 0)    
+    if (delta > 0)
     {
         for (int i = 0; i+delta <= queue->tail; i++)
         {
@@ -185,8 +171,6 @@ void* getMsg(TQueue *queue, pthread_t thread)
 
     //critical section for reading purposes
     pthread_mutex_lock(&queue->mutexEditing);
-    queue->activeReaders++;
-    pthread_mutex_unlock(&queue->mutexEditing);
 
     //algorythmic part
     TNode* subscriber = queue->subscribers;
@@ -196,46 +180,18 @@ void* getMsg(TQueue *queue, pthread_t thread)
     }
     if (subscriber == NULL)
     {
-        pthread_mutex_lock(&queue->mutexEditing);
-        queue->activeReaders--;
-        if (queue->activeReaders == 0)
-        {
-            pthread_cond_broadcast(&queue->lockEditing);
-        }
         pthread_mutex_unlock(&queue->mutexEditing);
         return NULL;
-    }
-
-    //this critical section may be a bit exessive 
-    pthread_mutex_lock(&queue->mutexEditing);
-    queue->activeReaders--;
-    if (queue->activeReaders == 0)
-    {
-        pthread_cond_broadcast(&queue->lockEditing);
     }
 
     //thread suspension
     while (subscriber->head > queue->tail)
     {
-        pthread_mutex_unlock(&queue->mutexEditing);
-        pthread_mutex_lock(&queue->mutexGetMsg);
-        pthread_cond_wait(&queue->lockGetMsg, &queue->mutexGetMsg);
-        pthread_mutex_unlock(&queue->mutexGetMsg);
-        pthread_mutex_lock(&queue->mutexEditing);
+        pthread_cond_wait(&queue->lockGetMsg, &queue->mutexEditing);
     }
-    queue->activeReaders++;
-    pthread_mutex_unlock(&queue->mutexEditing);
     //rest of algorythm
     void* toReturn = (void*) queue->messageArray[subscriber->head];
-    pthread_mutex_lock(&queue->mutexEditing);
-    queue->activeReaders--;
-    if (queue->activeReaders == 0)
-    {
-        pthread_cond_broadcast(&queue->lockEditing);
-    }
     subscriber->head++;
-    queue->activeReaders++;
-    pthread_mutex_unlock(&queue->mutexEditing);
     TNode* allSubscribers = queue->subscribers;
 
     //checking if every subscriber has already read this message (only deletes first messages due to how this structure works)
@@ -245,24 +201,12 @@ void* getMsg(TQueue *queue, pthread_t thread)
     }
     if (allSubscribers == NULL)
     {
-        pthread_mutex_lock(&queue->mutexEditing);
-        queue->activeReaders--;
-        if (queue->activeReaders == 0)
-        {
-            pthread_cond_broadcast(&queue->lockEditing);
-        }
         //removing item
         pthread_mutex_unlock(&queue->mutexEditing);
         removeMsg(queue, toReturn);
     }
     else
     {
-        pthread_mutex_lock(&queue->mutexEditing);
-        queue->activeReaders--;
-        if (queue->activeReaders == 0)
-        {
-            pthread_cond_broadcast(&queue->lockEditing);
-        }
         pthread_mutex_unlock(&queue->mutexEditing);
     }
     return toReturn;
@@ -279,19 +223,11 @@ void removeMsg(TQueue *queue, void *msg)
 
     //algorythmic part
     pthread_mutex_lock(&queue->mutexEditing);
-    queue->activeReaders++;
-    pthread_mutex_unlock(&queue->mutexEditing);
     
     //check if there are any messages
     if (queue->tail <= -1)
     {
         // printf("No msgs in queue to remove\n");
-        pthread_mutex_lock(&queue->mutexEditing);
-        queue->activeReaders--;
-        if (queue->activeReaders == 0)
-        {
-            pthread_cond_broadcast(&queue->lockEditing);
-        }
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
     }
@@ -307,27 +243,8 @@ void removeMsg(TQueue *queue, void *msg)
     if (i >= queue->tail+1)
     {
         // printf("No msg found in queue\n");
-        pthread_mutex_lock(&queue->mutexEditing);
-        queue->activeReaders--;
-        if (queue->activeReaders == 0)
-        {
-            pthread_cond_broadcast(&queue->lockEditing);
-        }
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
-    }
-
-    //critical section for editing
-    pthread_mutex_lock(&queue->mutexEditing);
-    queue->activeReaders--;
-    if (queue->activeReaders == 0)
-    {
-        pthread_cond_broadcast(&queue->lockEditing);
-    }
-    //wait for all readers to finish
-    while (queue->activeReaders != 0)
-    {
-        pthread_cond_wait(&queue->lockEditing, &queue->mutexEditing);
     }
 
     //moving subscriber heads
@@ -356,10 +273,7 @@ void removeMsg(TQueue *queue, void *msg)
 
 void addMsg(TQueue *queue, void *msg)
 {
-    //critical section reading
     pthread_mutex_lock(&queue->mutexEditing);
-    queue->activeReaders++;
-    pthread_mutex_unlock(&queue->mutexEditing);
 
     //checking variables
     if (queue == NULL)
@@ -369,56 +283,34 @@ void addMsg(TQueue *queue, void *msg)
     }
     if (queue->subscribers == NULL)
     {
-        pthread_mutex_lock(&queue->mutexEditing);
-        queue->activeReaders--;
-        if (queue->activeReaders == 0)
-        {
-            pthread_cond_broadcast(&(queue->lockEditing));
-        }
         pthread_mutex_unlock(&(queue->mutexEditing));
         return;
     }
 
     //algorythmic part
-    pthread_mutex_lock(&queue->mutexEditing);
-    queue->activeReaders--;
-    if (queue->activeReaders == 0)
-    {
-        pthread_cond_broadcast(&(queue->lockEditing));
-    }
     //suspending thread when queue is full
     while(queue->tail+1 >= queue->capacity)
     {
-        pthread_mutex_unlock(&(queue->mutexEditing));
-        pthread_mutex_lock(&(queue->mutexAddMsg));
-        pthread_cond_wait(&(queue->lockAddMsg), &(queue->mutexAddMsg));
-        pthread_mutex_unlock(&(queue->mutexAddMsg));
-        pthread_mutex_lock(&(queue->mutexEditing));
-    }
-    while (queue->activeReaders != 0)
-    {
-        pthread_cond_wait(&queue->lockEditing, &queue->mutexEditing);
+        pthread_cond_wait(&(queue->lockAddMsg), &(queue->mutexEditing));
     }
     queue->tail++;
     queue->messageArray[queue->tail] = msg;
-    pthread_mutex_unlock(&queue->mutexEditing);
     //sending signal that there is more things to read
     pthread_cond_broadcast(&queue->lockGetMsg);
+
+    pthread_mutex_unlock(&queue->mutexEditing);
     return;
 }
 
 int getAvailable(TQueue *queue, pthread_t thread)
 {
-    //critical section reading
     pthread_mutex_lock(&queue->mutexEditing);
-    queue->activeReaders++;
-    pthread_mutex_unlock(&queue->mutexEditing);
 
     //checking if queue is NULL
     if (queue == NULL)
     {
         // printf("Queue isn't initiated\n");
-
+        pthread_mutex_unlock(&queue->mutexEditing);
         return -1;
     }
 
@@ -432,21 +324,11 @@ int getAvailable(TQueue *queue, pthread_t thread)
     //if not subscribed than returns 0
     if (subscriber == NULL)
     {
-        queue->activeReaders--;
-        if (queue->activeReaders == 0)
-        {
-            pthread_cond_broadcast(&queue->lockEditing);
-        }
+        pthread_mutex_unlock(&queue->mutexEditing);
         return 0;
     }
     //number of messages that can be received without getting suspended
     int toReturn = queue->tail - subscriber->head + 1;
-    pthread_mutex_lock(&queue->mutexEditing);
-    queue->activeReaders--;
-    if (queue->activeReaders == 0)
-    {
-        pthread_cond_broadcast(&queue->lockEditing);
-    }
     pthread_mutex_unlock(&queue->mutexEditing);
     return toReturn;
 }
@@ -462,10 +344,6 @@ void subscribe(TQueue *queue, pthread_t thread)
 
     //critical section editing
     pthread_mutex_lock(&queue->mutexEditing);
-    while (queue->activeReaders != 0)
-    {
-        pthread_cond_wait(&queue->lockEditing, &queue->mutexEditing);
-    }
 
     //algorythmic part
     TNode** subscriber = &queue->subscribers;
@@ -490,7 +368,6 @@ void subscribe(TQueue *queue, pthread_t thread)
     }
     //found this thread to be already subscribed
     pthread_mutex_unlock(&queue->mutexEditing);
-    // printf("Thread already subscribed to this queue\n");
     return;
 }
 
@@ -505,17 +382,12 @@ void unsubscribe(TQueue *queue, pthread_t thread)
 
     //critical section editing
     pthread_mutex_lock(&queue->mutexEditing);
-    while (queue->activeReaders != 0)
-    {
-        pthread_cond_wait(&queue->lockEditing, &queue->mutexEditing);
-    }
 
     //algorythmic part
     TNode** subscriber = &queue->subscribers;
     //check if there are any subscribers
     if (*subscriber == NULL)
     {
-        // printf("Nobody is subscribed\n");
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
     }
@@ -527,8 +399,8 @@ void unsubscribe(TQueue *queue, pthread_t thread)
     //check if subscriber was found
     if (*subscriber == NULL)
     {
+        //isnt subscribed
         pthread_mutex_unlock(&queue->mutexEditing);
-        // printf("Not yet subscribed\n");
         return;
     }
     //subscriber was found, now deletes him (unsubscribes him)

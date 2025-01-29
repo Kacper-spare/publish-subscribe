@@ -21,13 +21,9 @@ int main()
     TQueue* queue = createQueue(sizeOfQueue);
 
     int var = 1;
-    // void* var2;
     int *m1 = &var;
     pthread_t t1 = pthread_self();
 
-    // pthread_t t2;
-    // pthread_create(&t2, NULL, function, queue);
-    // pthread_join(t2, NULL);
     subscribe(queue, t1);
     addMsg(queue, m1);    
     printf("%d \n", getAvailable(queue, t1));
