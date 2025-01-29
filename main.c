@@ -4,29 +4,38 @@
 
 void* function(void* args)
 {
-    unsigned long t1 = pthread_self();
-    TQueue* queue = (TQueue*)args;
-    int var = 1;
-    int *m1 = &var;
-    subscribe(queue, t1);
-    addMsg(queue, m1);
-    int tak = getAvailable(queue, t1);
-    printf("%d", tak);
+    pthread_t t1 = pthread_self();
+    subscribe((TQueue*)args, t1);
+    for (int i = 0; i < 95; i++)
+    {
+        getMsg((TQueue*)args, t1);
+    }
+    unsubscribe((TQueue*)args, t1);
     return NULL;
 }
 
 int main()
 {  
-    int sizeOfQueue = 10;
+    int sizeOfQueue = 20;
     TQueue* queue = createQueue(sizeOfQueue);
 
     int var = 1;
     int *m1 = &var;
+    int array[100] = {0};
     pthread_t t1 = pthread_self();
-
-    subscribe(queue, t1);
-    addMsg(queue, m1);    
-    printf("%d \n", getAvailable(queue, t1));
-
+    pthread_t test[10];
+    addMsg(queue, m1);
+    for (int i = 0; i < 100; i++)
+    {
+        addMsg(queue, array+i);
+        if (i < 10)
+        {
+            pthread_create(&test[i], NULL, function, (void*)queue);
+        }
+    }
+    for (int i = 0; i < 10; i++)
+    {
+        pthread_join(test[i], NULL);
+    }
     destroyQueue(queue);
 }

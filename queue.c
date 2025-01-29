@@ -188,11 +188,12 @@ void* getMsg(TQueue *queue, pthread_t thread)
     {
         //removing item
         queue->start++;
+        if (queue->capacity*3/4+1 <= queue->start)
+        {
+            shift(queue);
+        }
     }
-    else
-    {
-        pthread_mutex_unlock(&queue->mutexEditing);
-    }
+    pthread_mutex_unlock(&queue->mutexEditing);
     return toReturn;
 }
 
