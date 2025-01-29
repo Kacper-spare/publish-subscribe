@@ -20,19 +20,16 @@ Projekt został wykonany z użyciem dwóch struktur danych.
     ```c
     struct TQueue
     {
-        int capacity;
-        int tail;
-        void** messageArray;
-        TNode* subscribers;
-
         pthread_cond_t lockGetMsg;
         pthread_cond_t lockAddMsg;
         pthread_cond_t lockEditing;
-        pthread_mutex_t mutexGetMsg;
-        pthread_mutex_t mutexAddMsg;
         pthread_mutex_t mutexEditing;
 
-        int activeReaders;
+        int capacity;
+        int tail;
+        int start;
+        TNode* subscribers;
+        void** messageArray;
     };
     ```
     wyróżniamy tutaj dwa rodzaje zmiennych
@@ -43,10 +40,7 @@ Projekt został wykonany z użyciem dwóch struktur danych.
         pthread_cond_t lockGetMsg;
         pthread_cond_t lockAddMsg;
         pthread_cond_t lockEditing;
-        pthread_mutex_t mutexGetMsg;
-        pthread_mutex_t mutexAddMsg;
         pthread_mutex_t mutexEditing;
-        int activeReaders; //liczba wątków aktualnie czytających informacje kolejki
         ```
 
         zmienne te służą wyłącznie do synchronizacji wątków w programie z umożliwieniem istnienia wielu różnych struktur `TQueue`
@@ -58,6 +52,7 @@ Projekt został wykonany z użyciem dwóch struktur danych.
         ```c
         int capacity; //maksymalna ilość wiadomości w kolejce
         int tail; //indeks ostatniej wiadomości w kolejce
+        int start; //indeks pierwszego elementu kolejki
         void** messageArray; //lista dynamiczna zawierająca wiadomości
         TNode* subscribers; //lista jednokierunkowa z id wątków zasubskrybowanych
         ```
@@ -84,6 +79,8 @@ Poniższe funkcje zawarte tutaj są funkcjami związanymi z kolejką jednokierun
 1. `TNode* newNode(pthread_t* thread, TQueue* queue)` -- tworzy nowy wskaźnik do kolejnego elementu listy.
 
 2. `TNode* removeNode(TNode* head)` -- usuwa element podany, funkcja ta jest zawsze używana dla pewnego podzbioru listy i zawsze usuwa pierwszy element podzbioru.
+
+3. `void shift(TQueue *queue)` -- przesuwa elementy kolejki o start w lewo, służy jako mechanizm opóźnienia rzeczywistego usunięcia wiadomości
 
 # Algorytm
 
@@ -119,43 +116,19 @@ I ostatecznie usunie zduplikowaną wiadomość (nie jest to jednak konieczne z p
 
 ## Zabezpieczenia
 
-W programie występuje dwa zabezpieczeń związanych z obsługą informacji w strukturze `TQueue`.
+W programie występuje zabezpieczenie związanych z obsługą informacji w strukturze `TQueue`.
 
-### Sekcja krytyczna dla wątku czytającego
-
-```c
-pthread_mutex_lock(&queue->mutexEditing);
-queue->activeReaders++;
-pthread_mutex_unlock(&queue->mutexEditing);
-
-...
-
-pthread_mutex_lock(&queue->mutexEditing);
-queue->activeReaders--;
-if (queue->activeReaders == 0)
-{
-    pthread_cond_broadcast(&queue->lockEditing);
-}
-pthread_mutex_unlock(&queue->mutexEditing);
-```
-
-Zabezpieczenie to informuje wątki edytujące informacje o istnieniu wątku, który aktualnie czyta informacje z `TQueue`, czyli informacja o tym, że nie powinien zmieniać tych informacji, dopóki inne wątki czytają je. Natomiast druga część informuje wątki uśpione przez zmienną warunkową o potencjalnej możliwości edycji `TQueue`. Informujemy wszystkie wątki, ponieważ kiedy jeden z nich skończy zadanie to drugi może rozpocząć swoje bez czekania aż znowu wystąpi sygnał na danej zmiennej warunkowej.
-
-### Sekcja krytyczna dla wątku edytującego
+### Sekcja krytyczna dla wątku
 
 ```c
 pthread_mutex_lock(&queue->mutexEditing);
-while (queue->activeReaders != 0)
-{
-    pthread_cond_wait(&queue->lockEditing, &queue->mutexEditing);
-}
 
 ...
 
 pthread_mutex_unlock(&queue->mutexEditing);
 ```
 
-Sekcja krytyczna występuje na całości funkcji (ponieważ edytujemy) co zatrzymuje inne wątki od edycji i czytania informacji w kolejce. Można ten problem porównać do problemu pisarzy i czytelników z priorytetem dla czytających.
+Sekcja krytyczna występuje na całości funkcji co zatrzymuje inne wątki od edycji i czytania informacji w kolejce.
 
 ### Omówienie odporności na problemy przetważania współbieżnego \
 
@@ -165,13 +138,11 @@ Nie powinno wystąpić. Zasobem żądanym przez wątki jest dostęp do struktury
 
 #### Aktywne oczekiwanie \
 
-Program nie zawiera pętli z uśpieniem typu `sleep(n)`, ani pętli które wyłącznie sprawdzają swój warunek (np. `while (queue->activeReaders != 0)`). Występują natomiast uśpienie jak przedstawione w [sekcji krytycznej dla wątku edytującego](#sekcja-krytyczna-dla-wątku-edytującego) które pozwala na uśpienie wątku i oczekiwanie na otrzymanie sygnału który obudzi wątek z powrotem do działania.
-
-\pagebreak
+Program nie zawiera pętli z uśpieniem typu `sleep(n)`, ani pętli które wyłącznie sprawdzają swój warunek (np. `while (queue->activeReaders != 0)`). Występują natomiast uśpienie które pozwala na zatrzymanie pracy wątku i oczekiwanie na otrzymanie sygnału który obudzi wątek z powrotem do działania.
 
 #### Głodzenie \
 
-Jak powiedziane wcześniej program jest podobny do problemu piszących i czytających z priorytetem dla czytających co pozwala na głodzenie wątków piszących. Dodanie kolejnego mutexa który by kontrolował zezwolenie na czytanie spowodowało by odwrócenie priorytetu (głodzenie wątków czytających), jednakże specyfikacja projektu mówi o blokowaniu się wątków, które próbują odebrać wiadomości, kiedy nie ma nowej wiadomości do odebrania. Na tej podstawie można stwierdzić że głodzenie może wystąpić jedynie kiedy wątki będą wywoływać funkcje `getAvailable(TQueue *queue, pthread_t thread)`. Odwrócenie priorytetu doprowadzi do jednakowego problemu poprzez wywoływanie funkcji edytujących.
+Głodzenie wątku może występować, jednakże będzie ono związane z sposobem dawania dostępu do procesora przez system operacyjny a nie sam program.
 
 # Przykład użycia
 
