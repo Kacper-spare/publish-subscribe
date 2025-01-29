@@ -260,7 +260,6 @@ void shift(TQueue *queue)
     {
         return;
     }
-    TNode* subscribed = queue->subscribers;
     //shift elements to the left by start
     for (int i = 0; i+queue->start <= queue->tail; i++)
     {
@@ -272,9 +271,13 @@ void shift(TQueue *queue)
         queue->messageArray[i] = NULL;
     }
     //shifting the head of subscriber
+    TNode* subscribed = queue->subscribers;
     while (subscribed != NULL)
     {
-        subscribed->head -= queue->start;
+        if (subscribed->head > 0)
+        {
+            subscribed->head -= queue->start;
+        }
         subscribed = subscribed->next;
     }
     queue->tail -= queue->start;
