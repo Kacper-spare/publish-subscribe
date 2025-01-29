@@ -52,6 +52,7 @@ TQueue* createQueue(int size)
 
     //default values of variables for queue
     queue->tail = -1;
+    queue->start = 0;
     queue->capacity = size;
     queue->messageArray = malloc(queue->capacity*sizeof(void*));
     queue->subscribers = NULL;
@@ -105,6 +106,9 @@ void destroyQueue(TQueue* queue)
 
 void setSize(TQueue* queue, int size)
 {
+    //critical section
+    pthread_mutex_lock(&queue->mutexEditing);
+
     //checking if values are proper
     if (queue == NULL)
     {
@@ -113,33 +117,17 @@ void setSize(TQueue* queue, int size)
     }
     if (size <= 0)
     {
-        // printf("Incorect value of size\n");
+        pthread_mutex_unlock(&queue->mutexEditing);
         return;
     }
 
-    //critical section due to editing values
-    pthread_mutex_lock(&queue->mutexEditing);
-
     //algorythmic part
     int delta = queue->tail - size + 1;
-    TNode* subscriber = queue->subscribers;
     if (delta > 0)
     {
-        for (int i = 0; i+delta <= queue->tail; i++)
-        {
-            queue->messageArray[i] = queue->messageArray[i+delta];
-
-        }
-        while (subscriber != NULL)
-        {
-            subscriber->head -= delta;
-            if (subscriber->head < 0)
-            {
-                subscriber->head = 0;
-            }
-            subscriber = subscriber->next;
-        }
+        queue->start = delta;
     }
+    shift(queue);
     queue->messageArray = realloc(queue->messageArray, size*sizeof(void*));
 
     //if realloc fails 
@@ -151,10 +139,6 @@ void setSize(TQueue* queue, int size)
 
     //set values in queue approperly
     queue->capacity = size;
-    if (queue->capacity <= queue->tail)
-    {
-        queue->tail = queue->capacity - 1;
-    }
 
     pthread_mutex_unlock(&queue->mutexEditing);
     return;
@@ -162,6 +146,9 @@ void setSize(TQueue* queue, int size)
 
 void* getMsg(TQueue *queue, pthread_t thread)
 {
+    //critical section
+    pthread_mutex_lock(&queue->mutexEditing);
+
     //checking if values are proper
     if (queue == NULL)
     {
@@ -169,15 +156,13 @@ void* getMsg(TQueue *queue, pthread_t thread)
         exit(0);
     }
 
-    //critical section for reading purposes
-    pthread_mutex_lock(&queue->mutexEditing);
-
     //algorythmic part
     TNode* subscriber = queue->subscribers;
     while (subscriber != NULL && subscriber->data != thread)
     {
         subscriber = subscriber->next;
     }
+    //no subscriber found
     if (subscriber == NULL)
     {
         pthread_mutex_unlock(&queue->mutexEditing);
@@ -189,12 +174,12 @@ void* getMsg(TQueue *queue, pthread_t thread)
     {
         pthread_cond_wait(&queue->lockGetMsg, &queue->mutexEditing);
     }
-    //rest of algorythm
+
     void* toReturn = (void*) queue->messageArray[subscriber->head];
     subscriber->head++;
     TNode* allSubscribers = queue->subscribers;
 
-    //checking if every subscriber has already read this message (only deletes first messages due to how this structure works)
+    //checking if every subscriber has already read this message
     while (allSubscribers != NULL && allSubscribers->head >= subscriber->head)
     {
         allSubscribers = allSubscribers->next;
@@ -202,8 +187,7 @@ void* getMsg(TQueue *queue, pthread_t thread)
     if (allSubscribers == NULL)
     {
         //removing item
-        pthread_mutex_unlock(&queue->mutexEditing);
-        removeMsg(queue, toReturn);
+        queue->start++;
     }
     else
     {
@@ -214,6 +198,8 @@ void* getMsg(TQueue *queue, pthread_t thread)
 
 void removeMsg(TQueue *queue, void *msg)
 {
+    pthread_mutex_lock(&queue->mutexEditing);
+
     //checking if values are correct
     if (queue == NULL)
     {
@@ -222,18 +208,14 @@ void removeMsg(TQueue *queue, void *msg)
     }
 
     //algorythmic part
-    pthread_mutex_lock(&queue->mutexEditing);
-    
     //check if there are any messages
     if (queue->tail <= -1)
     {
-        // printf("No msgs in queue to remove\n");
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
     }
 
-    //algorythmic part
-    int i = 0;
+    int i = queue->start;
     //search for given message in queue
     while (i < queue->tail+1 && queue->messageArray[i] != msg)
     {
@@ -242,7 +224,7 @@ void removeMsg(TQueue *queue, void *msg)
     //check if message was found
     if (i >= queue->tail+1)
     {
-        // printf("No msg found in queue\n");
+        //No msg found in queue
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
     }
@@ -271,6 +253,35 @@ void removeMsg(TQueue *queue, void *msg)
     return;
 }
 
+void shift(TQueue *queue)
+{
+    if (queue->start <= 0)
+    {
+        return;
+    }
+    TNode* subscribed = queue->subscribers;
+    //shift elements to the left by start
+    for (int i = 0; i+queue->start <= queue->tail; i++)
+    {
+        queue->messageArray[i] = queue->messageArray[i+queue->start];
+    }
+    //set unused messages to null
+    for (int i = queue->tail-queue->start+1; i <= queue->tail; i++)
+    {
+        queue->messageArray[i] = NULL;
+    }
+    //shifting the head of subscriber
+    while (subscribed != NULL)
+    {
+        subscribed->head -= queue->start;
+        subscribed = subscribed->next;
+    }
+    queue->tail -= queue->start;
+    queue->start = 0;
+    pthread_cond_broadcast(&queue->lockAddMsg);
+    return;
+}
+
 void addMsg(TQueue *queue, void *msg)
 {
     pthread_mutex_lock(&queue->mutexEditing);
@@ -289,9 +300,14 @@ void addMsg(TQueue *queue, void *msg)
 
     //algorythmic part
     //suspending thread when queue is full
+    if (queue->tail+1 >= queue->capacity)
+    {
+        shift(queue);
+    }
     while(queue->tail+1 >= queue->capacity)
     {
         pthread_cond_wait(&(queue->lockAddMsg), &(queue->mutexEditing));
+        shift(queue);
     }
     queue->tail++;
     queue->messageArray[queue->tail] = msg;
@@ -335,15 +351,15 @@ int getAvailable(TQueue *queue, pthread_t thread)
 
 void subscribe(TQueue *queue, pthread_t thread)
 {
+    //critical section editing
+    pthread_mutex_lock(&queue->mutexEditing);
+
     //checking if queue is null
     if (queue == NULL)
     {
         printf("Queue isn't initiated\n");
         exit(0);
     }
-
-    //critical section editing
-    pthread_mutex_lock(&queue->mutexEditing);
 
     //algorythmic part
     TNode** subscriber = &queue->subscribers;
@@ -373,15 +389,15 @@ void subscribe(TQueue *queue, pthread_t thread)
 
 void unsubscribe(TQueue *queue, pthread_t thread)
 {
+    //critical section editing
+    pthread_mutex_lock(&queue->mutexEditing);
+
     //checking if queue is NULL
     if (queue == NULL)
     {
         printf("Queue isn't initiated\n");
         exit(0);
     }
-
-    //critical section editing
-    pthread_mutex_lock(&queue->mutexEditing);
 
     //algorythmic part
     TNode** subscriber = &queue->subscribers;
@@ -413,6 +429,7 @@ void unsubscribe(TQueue *queue, pthread_t thread)
             queue->messageArray[i] = NULL;
         }
         queue->tail = -1;
+        queue->start = 0;
         pthread_cond_broadcast(&queue->lockAddMsg);
         pthread_mutex_unlock(&queue->mutexEditing);
         return;
@@ -432,21 +449,11 @@ void unsubscribe(TQueue *queue, pthread_t thread)
     //check if there needs to be any deleted messages
     if (delta > 0)
     {
-        for (int i = 0; i+delta <= queue->tail; i++)
+        queue->start = delta;
+        if (queue->tail+1 >= queue->capacity)
         {
-            queue->messageArray[i] = queue->messageArray[i+delta];
+            shift(queue);
         }
-        for (int i = queue->tail-delta+1; i <= queue->tail; i++)
-        {
-            queue->messageArray[i] = NULL;
-        }
-        while (subscribed != NULL)
-        {
-            subscribed->head -= delta;
-            subscribed = subscribed->next;
-        }
-        queue->tail-=delta;
-        pthread_cond_broadcast(&queue->lockAddMsg);
     }
     pthread_mutex_unlock(&queue->mutexEditing);
     return;

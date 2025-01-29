@@ -38,6 +38,8 @@ struct TQueue
     int capacity;
     //last index with valuable information past this all values in messageArray should be NULL
     int tail;
+    //shows the start of the queue, used for delaying the deletion of messages
+    int start;
     //singly linked list of all currenly subscribed threads
     TNode* subscribers;
     //array of any information
@@ -76,8 +78,11 @@ void* getMsg(TQueue *queue, pthread_t thread);
 //return how many messages are left to read for thread returs -1 when queue is NULL
 int getAvailable(TQueue *queue, pthread_t thread);
 
-//removes given message from queue 
+//removes given message from queue, may just shift the index by 1 to right
 void removeMsg(TQueue *queue, void *msg);
+
+//shifts queue to start at index 0 again
+void shift(TQueue *queue);
 
 //sets size of queue to size, when size is smaller than previous it deletes the oldest messages
 void setSize(TQueue *queue, int size);
