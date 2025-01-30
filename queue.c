@@ -85,7 +85,10 @@ void destroyQueue(TQueue* queue)
     queue->messageArray = NULL;
     if (queue->subscribers != NULL)
     {
-        while (removeNode((queue->subscribers)) != NULL);
+        while (queue->subscribers != NULL)
+        {
+            queue->subscribers = removeNode(queue->subscribers);
+        }
     }
 
     pthread_cond_destroy(&queue->lockAddMsg);
