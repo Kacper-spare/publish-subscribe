@@ -62,8 +62,6 @@ TQueue* createQueue(int size)
     pthread_cond_init(&queue->lockAddMsg, NULL);
     pthread_cond_init(&queue->lockEditing, NULL);
 
-    pthread_mutex_init(&queue->mutexEditing, NULL);
-
     pthread_mutex_unlock(&queue->mutexEditing);
     return queue;
 }
@@ -92,7 +90,6 @@ void destroyQueue(TQueue* queue)
 
     pthread_cond_destroy(&queue->lockAddMsg);
     pthread_cond_destroy(&queue->lockGetMsg);
-
     pthread_cond_destroy(&queue->lockEditing);
 
     //exiting critical section due to mutex deleting 
