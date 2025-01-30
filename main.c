@@ -4,8 +4,7 @@
 
 int main()
 {  
-    int sizeOfQueue = 3;
-    TQueue* queue = createQueue(sizeOfQueue);
+    TQueue* queue = createQueue(3);
     destroyQueue(queue);
     
 }
